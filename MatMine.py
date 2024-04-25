@@ -79,7 +79,9 @@ class MineSweeper:
         # Connect button press event to the _button_press method
         self.fig.canvas.mpl_connect('button_press_event', self._button_press)
 
-        self._model = models.load_model("output/minesweeper_AI_Dense_binary_03.h5")
+        self._model = models.load_model("output/minesweeper_AI_Dense_binary_Adam.h5")
+        #self._model = models.load_model("output/minesweeper_AI_Conv1D_binary.h5")
+
 
         self.no_guess()
 
@@ -166,10 +168,10 @@ class MineSweeper:
         self.ax.add_patch(plt.Circle((i + 0.5, j + 0.5), radius=0.25,
                                      ec='black', fc='black'))
 
-    def _draw_red_X(self, i, j):
+    def _draw_red_X(self, i, j,opacity=1):
         # Method to draw a red 'X' on the board
         self.ax.text(i + 0.5, j + 0.5, 'X', color='red', fontsize=20,
-                     ha='center', va='center')
+                     ha='center', va='center',alpha=opacity)
     def _draw_green_X(self, i, j):
         # Method to draw a red 'X' on the board
         self.ax.text(i + 0.5, j + 0.5, 'X', color='green', fontsize=20,
@@ -241,7 +243,7 @@ class MineSweeper:
                 #pass
                 break
 
-    def find_patterns(self, matrix, output_file):
+    def find_patterns(self, matrix,false_matrix, output_file):
         # with open(output_file, 'a', newline='') as csvfile:
         #     csv_writer = csv.writer(csvfile)
         #
@@ -283,36 +285,45 @@ class MineSweeper:
         #     for i in range(2, matrix.shape[0] - 2):
         #         for j in range(2, matrix.shape[1] - 2):
         #             submatrix = matrix[i - 2:i + 3, j - 2:j + 3]
+        #             false_submatrix = false_matrix[i - 2:i + 3, j - 2: j + 3]
         #             sub_submatrix = matrix[i - 1:i + 2, j - 1:j + 2]
         #
-        #             if submatrix[2, 2] == -2 and np.any((sub_submatrix != -1) & (sub_submatrix != 0) & (sub_submatrix != -2)):
+        #             #if submatrix[2, 2] == -2 and np.any((sub_submatrix != -1) & (sub_submatrix != 0) & (sub_submatrix != -2)):
+        #             if submatrix[2, 2] == -1 and np.any((sub_submatrix != -1) & (sub_submatrix != 0)):
         #                 # Flatten the submatrix and concatenate with the result
-        #                 flattened_submatrix = submatrix.flatten()
+        #                 flattened_submatrix = false_submatrix.flatten()
         #                 result = 1 if self.tiles[i - 2, j - 2] == 9 else 0
         #
         #                 # Write to CSV file
         #                 csv_writer.writerow([result] + list(flattened_submatrix))
 
+        for text in self.ax.texts:
+            if text._text == 'X':
+                text.remove()
 
         for i in range(2, matrix.shape[0] - 2):
             for j in range(2, matrix.shape[1] - 2):
                 submatrix = matrix[i - 2:i + 3, j - 2:j + 3]
+                false_submatrix = false_matrix[i - 2:i + 3, j - 2:j + 3]
                 sub_submatrix = matrix[i-1:i+2, j-1:j + 2]
-                if submatrix[2, 2] == -2 and np.any((sub_submatrix != -1) & (sub_submatrix != 0) & (sub_submatrix != -2)):
+                #if submatrix[2, 2] == -2 and np.any((sub_submatrix != -1) & (sub_submatrix != 0) & (sub_submatrix != -2)):
+                if submatrix[2, 2] == -1 and np.any((sub_submatrix != -1) & (sub_submatrix != 0)):
                     # Flatten the submatrix and concatenate with the result
-                    flattened_submatrix = submatrix.flatten()
+                    flattened_submatrix = false_submatrix.flatten()
                     flattened_submatrix = flattened_submatrix.reshape(1, 25, 1)
 
 
                     predictions = self._model.predict(flattened_submatrix)
-                    if predictions > 0.95:
-                        self._draw_red_X(i - 2, j - 2)
+                    # if predictions > 0.90:
+                    #     self._draw_red_X(i - 2, j - 2)
+                    #
+                    # elif predictions < 0.1:
+                    #     self._draw_green_X(i - 2, j - 2)
+                    #
+                    # else:
+                    #     self._draw_grey_X(i-2,j-2)
+                    self._draw_red_X(i-2,j-2,predictions[0][0])
 
-                    elif predictions < 0.05:
-                        self._draw_green_X(i - 2, j - 2)
-
-                    else:
-                        self._draw_grey_X(i-2,j-2)
     def _click_square(self, i, j):
         # Method to handle left-click on a square
 
@@ -410,23 +421,34 @@ class MineSweeper:
         self._printState()
 
     def _printState(self):
+        ## -1 == flag
+        ## -2 == unknown
+
+
+
+
         self._state = np.empty((len(self.tiles), len(self.tiles[0])), dtype=int)
+        self._false_state = np.empty((len(self.tiles), len(self.tiles[0])), dtype=int)
 
         for i in range(len(self.tiles)):
             for j in range(len(self.tiles[i])):
                 if self.clicked[i, j]:
                     self._state[i, j] = self.tiles[i, j]
+                    self._false_state[i, j] = self.tiles[i, j]
                 elif self.flags[i,j]:
-                    self._state[i,j] = -1
-                    # self._state[i,j] = 11
+                    self._state[i,j] = 0
+                    # self._state[i,j] = -1
+                    self._false_state[i, j] = 0
                 else:
-                    self._state[i, j] = -2
-                    # self._state[i, j] = -1
+                    self._state[i, j] = -1
+                    # self._state[i, j] = -2
+                    self._false_state[i, j] = 0
 
         #self._state = np.pad(self._state, pad_width=1, constant_values=100)
         self._state = np.pad(self._state, pad_width=2, constant_values=0)
+        self._false_state = np.pad(self._false_state, pad_width=2, constant_values=0)
 
-        self.find_patterns(self._state,'input/training_adv_2.csv')
+        self.find_patterns(self._state,self._false_state,'input/training_newgen.csv')
 
 
 def main():

@@ -3,7 +3,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten , BatchNormalization , LeakyReLU
-from keras.optimizers import Adam
+from keras.optimizers import Adam, SGD, Adamax, RMSprop
 from keras.callbacks import EarlyStopping
 from keras.regularizers import l2
 from keras import models
@@ -37,20 +37,22 @@ def build_model(input_shape):
 
     model.add(Dense(64, activation='relu'))
 
+    model.add(Dense(32, activation='relu'))
+
     # Output layer with sigmoid activation for binary classification
     model.add(Dense(1, activation='sigmoid'))
 
     # Compile the model
     initial_lr = 0.0001
     loss = 'binary_crossentropy'
-    model.compile(Adam(learning_rate=initial_lr), loss=loss, metrics=['accuracy'])
+    model.compile(Adam(learning_rate=initial_lr), loss=loss, metrics=['binary_accuracy'])
 
     return model
 
 # Plot training history
 def plot_training_history(history):
-    plt.plot(history.history['accuracy'], label='train_accuracy')
-    plt.plot(history.history['val_accuracy'], label='val_accuracy')
+    plt.plot(history.history['binary_accuracy'], label='train_accuracy')
+    plt.plot(history.history['val_binary_accuracy'], label='val_accuracy')
     plt.legend()
     plt.show()
 
@@ -61,7 +63,7 @@ def plot_training_history(history):
 
 # Main function
 def main():
-    csv_file_path = "input/training_adv_2.csv"  # Replace with your actual file path
+    csv_file_path = "input/training_newgen.csv"  # Replace with your actual file path
     train_features, val_features, train_labels, val_labels = load_and_preprocess_data(csv_file_path)
 
     model = build_model(train_features.shape[1])
@@ -83,7 +85,7 @@ def main():
     plot_training_history(history)
 
     # Save the model
-    model.save('output/minesweeper_AI_Dense_binary_03.h5')  # Replace with your desired model path
+    model.save('output/minesweeper_AI_Dense_binary_Adam.h5')  # Replace with your desired model path
 
     # Save or visualize the training history
     plot_training_history(history)
