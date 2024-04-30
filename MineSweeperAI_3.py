@@ -2,10 +2,9 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from keras.models import Sequential
-from keras.layers import Dense, Flatten, Conv1D, GlobalAveragePooling1D, MaxPooling1D
+from keras.layers import Dense, Flatten, Conv2D, MaxPooling2D, Reshape
 from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping
-from keras import models
 import matplotlib.pyplot as plt
 
 # Load and preprocess data
@@ -19,22 +18,24 @@ def load_and_preprocess_data(csv_file_path):
     # Train-test split
     train_features, val_features, train_labels, val_labels = train_test_split(features, labels, test_size=0.1)
 
+    # Reshape features to 5x5 arrays
+    train_features = train_features.reshape(-1, 5, 5, 1)
+    val_features = val_features.reshape(-1, 5, 5, 1)
+
     return train_features, val_features, train_labels, val_labels
 
 # Build the model
 def build_model(input_shape):
     model = Sequential()
 
-    # Assuming train_features.shape[1] is the length of your input array
-    input_shape = (input_shape, 1)
+    model.add(Reshape((5, 5, 1), input_shape=input_shape))
 
     # Convolutional layers
-    model.add(Conv1D(32, 3, activation='relu', input_shape=input_shape))
-    model.add(MaxPooling1D(2))
-    model.add(Conv1D(64, 3, activation='relu'))
-    model.add(MaxPooling1D(2))
-    model.add(Conv1D(128, 3, activation='relu'))
-    model.add(MaxPooling1D(2))
+    # Modify Convolutional Layers
+    model.add(Conv2D(32, kernel_size=(3, 3), activation='relu', padding='same', input_shape=input_shape))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1), padding='same'))
+    model.add(Conv2D(64, kernel_size=(3, 3), activation='relu', padding='same'))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1), padding='same'))
 
     # Flatten the output of the convolutional layers
     model.add(Flatten())
@@ -54,7 +55,6 @@ def build_model(input_shape):
 
     return model
 
-
 # Plot training history
 def plot_training_history(history):
     plt.plot(history.history['binary_accuracy'], label='train_accuracy')
@@ -72,11 +72,7 @@ def main():
     csv_file_path = "input/training_newgen.csv"  # Replace with your actual file path
     train_features, val_features, train_labels, val_labels = load_and_preprocess_data(csv_file_path)
 
-    # Expand dimensions for compatibility with Conv1D
-    train_features = np.expand_dims(train_features, axis=-1)
-    val_features = np.expand_dims(val_features, axis=-1)
-
-    model = build_model(train_features.shape[1])
+    model = build_model(train_features.shape[1:])
 
     # Use early stopping
     early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
@@ -93,18 +89,8 @@ def main():
     # Save or visualize the training history
     plot_training_history(history)
 
-    #Save the model
-    model.save('output/minesweeper_AI_Conv1D_binary_Adam.h5')
-
-    # model = models.load_model("output/minesweeper_AI_Conv1D_binary.h5")
-    #
-    # new_data = np.array([[2,3,2,-1,-1,-1,-1,-1,-1]])
-    # predictions = model.predict(new_data)
-    # print(predictions)
-    #
-    # new_data2 = np.array([[1, 2, 1, -1, -1, -1, -1, -1, -1]])
-    # predictions = model.predict(new_data2)
-    # print(predictions)
+    # Save the model
+    model.save('output/minesweeper_AI_Conv2D_binary_Adam.h5')
 
 if __name__ == '__main__':
     main()

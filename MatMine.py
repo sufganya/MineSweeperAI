@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import RegularPolygon
-from matplotlib.widgets import Button
+from matplotlib.widgets import Button, RadioButtons
 from matplotlib.animation import FuncAnimation
 from itertools import product
 from datetime import datetime
@@ -59,7 +59,10 @@ class MineSweeper:
         reset_button_ax = plt.axes([0.45, 0.95, 0.1, 0.05])
         self.reset_button = Button(reset_button_ax, 'Reset')
         self.reset_button.on_clicked(self._reset_board)
-
+        radio_labels = ['Adam', 'RMS', 'SGD','Conv1D: Adam','Conv2D: Adam']
+        radio_axes = plt.axes([0.05, 0.45, 0.1, 0.2], facecolor='lightgoldenrodyellow')
+        self.radio_buttons = RadioButtons(radio_axes, radio_labels)
+        self.radio_buttons.on_clicked(self._radio_button_selected)
         # Create the grid of squares
         self.squares = np.array([[RegularPolygon((i + 0.5, j + 0.5),
                                                  numVertices=4,
@@ -90,6 +93,24 @@ class MineSweeper:
         for event_type, event_dict in list(self.fig.canvas.callbacks.callbacks.items()):
             for cid, func in list(event_dict.items()):
                 self.fig.canvas.mpl_disconnect(cid)
+
+    def _radio_button_selected(self,label):
+        print(f'Radio button selected: {label}')
+        if label == "Adam":
+            self._model = models.load_model("output/minesweeper_AI_Dense_binary_Adam.h5")
+            self._printState()
+        elif label == "RMS":
+            self._model = models.load_model("output/minesweeper_AI_Dense_binary_RMS.h5")
+            self._printState()
+        elif label == "SGD":
+            self._model = models.load_model("output/minesweeper_AI_Dense_binary_SGD.h5")
+            self._printState()
+        elif label == "Conv1D: Adam":
+            self._model = models.load_model("output/minesweeper_AI_Conv1D_binary_Adam.h5")
+            self._printState()
+        elif label == "Conv2D: Adam":
+            self._model = models.load_model("output/minesweeper_AI_Conv2D_binary_Adam.h5")
+            self._printState()
 
     def _reset_board(self, event):
         # Method to reset the Minesweeper board
@@ -312,7 +333,6 @@ class MineSweeper:
                     flattened_submatrix = false_submatrix.flatten()
                     flattened_submatrix = flattened_submatrix.reshape(1, 25, 1)
 
-
                     predictions = self._model.predict(flattened_submatrix)
                     # if predictions > 0.90:
                     #     self._draw_red_X(i - 2, j - 2)
@@ -391,7 +411,8 @@ class MineSweeper:
         # Check if the coordinates are within the board boundaries
         if (i < 0 or j < 0 or i >= self.width or j >= self.height):
             return
-
+        if event.inaxes == self.radio_buttons.ax:
+            return
         # Check if the button press is on the reset button
         if event.inaxes == self.reset_button.ax:
             return
@@ -453,7 +474,7 @@ class MineSweeper:
 
 def main():
     # Initialize and show the MineSweeper game
-    m = MineSweeper(9,9, 0.125)
+    m = MineSweeper(9, 9, 0.125)
     plt.show()
 
 
