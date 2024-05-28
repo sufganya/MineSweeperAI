@@ -1,11 +1,17 @@
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from keras.models import Sequential
-from keras.layers import Dense, Flatten, Conv2D, MaxPooling2D, Reshape
-from keras.optimizers import Adam
+from keras.layers import Dense, Flatten, Conv2D, MaxPooling2D, Reshape, BatchNormalization, Dropout, LeakyReLU
+from keras.optimizers import Adam, RMSprop, SGD
+from keras.regularizers import l2
 from keras.callbacks import EarlyStopping
 import matplotlib.pyplot as plt
+from keras.preprocessing.image import ImageDataGenerator
+from kerastuner import RandomSearch
+from keras import models
+from kerastuner.engine.hyperparameters import HyperParameters
 
 # Load and preprocess data
 def load_and_preprocess_data(csv_file_path):
@@ -18,40 +24,48 @@ def load_and_preprocess_data(csv_file_path):
     # Train-test split
     train_features, val_features, train_labels, val_labels = train_test_split(features, labels, test_size=0.1)
 
-    # Reshape features to 5x5 arrays
-    train_features = train_features.reshape(-1, 5, 5, 1)
-    val_features = val_features.reshape(-1, 5, 5, 1)
-
     return train_features, val_features, train_labels, val_labels
 
 # Build the model
-def build_model(input_shape):
+def build_model():
     model = Sequential()
 
-    model.add(Reshape((5, 5, 1), input_shape=input_shape))
+    # Flatten the input
+    model.add(Reshape((5, 5, 1), input_shape=(25, 1)))
 
-    # Convolutional layers
-    # Modify Convolutional Layers
-    model.add(Conv2D(32, kernel_size=(3, 3), activation='relu', padding='same', input_shape=input_shape))
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1), padding='same'))
-    model.add(Conv2D(64, kernel_size=(3, 3), activation='relu', padding='same'))
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1), padding='same'))
+    # First convolutional layer
+    model.add(Conv2D(filters=64, kernel_size=3, padding='same', kernel_regularizer=l2(0.001)))
+    model.add(BatchNormalization())
+    model.add(LeakyReLU(alpha=0.1))
+    model.add(Dropout(0.3))
 
-    # Flatten the output of the convolutional layers
+    # Second convolutional layer
+    model.add(Conv2D(filters=80, kernel_size=3, padding='same', kernel_regularizer=l2(0.001)))
+    model.add(BatchNormalization())
+    model.add(LeakyReLU(alpha=0.1))
+    model.add(Dropout(0.3))
+
+    # Flatten the output
     model.add(Flatten())
 
-    # Dense layers
-    model.add(Dense(128, activation='relu'))
-    model.add(Dense(64, activation='relu'))
+    # First dense layer
+    model.add(Dense(96, kernel_regularizer=l2(0.001)))
+    model.add(BatchNormalization())
+    model.add(LeakyReLU(alpha=0.1))
+    model.add(Dropout(0.4))
 
-    # Output layer with sigmoid activation for binary classification
+    # Second dense layer
+    model.add(Dense(64, kernel_regularizer=l2(0.001)))
+    model.add(BatchNormalization())
+    model.add(LeakyReLU(alpha=0.1))
+    model.add(Dropout(0.4))
+
+    # Output layer
     model.add(Dense(1, activation='sigmoid'))
 
     # Compile the model
-    initial_lr = 0.0001
-    optimizer = Adam(learning_rate=initial_lr)
-    loss = 'binary_crossentropy'
-    model.compile(optimizer, loss=loss, metrics=['binary_accuracy'])
+    optimizer = Adam(learning_rate=0.001)
+    model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['binary_accuracy'])
 
     return model
 
@@ -72,13 +86,14 @@ def main():
     csv_file_path = "input/training_newgen.csv"  # Replace with your actual file path
     train_features, val_features, train_labels, val_labels = load_and_preprocess_data(csv_file_path)
 
-    model = build_model(train_features.shape[1:])
+    model = build_model()
 
     # Use early stopping
     early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
 
-    epochs = 200
-    batch_size = 64
+    # Train the model
+    epochs = 200  # Adjust as needed
+    batch_size = 64  # Adjust as needed
     history = model.fit(
         train_features, train_labels,
         batch_size=batch_size, epochs=epochs,
@@ -86,11 +101,44 @@ def main():
         callbacks=[early_stopping]
     )
 
+    # Calculate AUC-ROC for validation set
+    val_pred = model.predict(val_features)
+
+    # Save the model
+    model.save('output/minesweeper_AI_Conv2D_binary_Adam.h5')  # Replace with your desired model path
+
     # Save or visualize the training history
     plot_training_history(history)
 
-    # Save the model
-    model.save('output/minesweeper_AI_Conv2D_binary_Adam.h5')
+# Plot training history
+def plot_training_history(history):
+    plt.plot(history.history['binary_accuracy'], label='train_accuracy')
+    plt.plot(history.history['val_binary_accuracy'], label='val_accuracy')
+    plt.legend()
+    plt.show()
+
+    plt.plot(history.history['loss'], label='train_loss')
+    plt.plot(history.history['val_loss'], label='val_loss')
+    plt.legend()
+    plt.show()
+
+def testing():
+    # Load the trained model
+    model = models.load_model("output/minesweeper_AI_Conv2D_binary_Adam.h5")
+
+    # Load the testing dataset
+    testing_data = pd.read_csv("input/testing_newgen.csv")
+
+    # Separate features (X_test) and labels (y_test)
+    X_test = testing_data.iloc[:, 1:].values  # Assuming the first column is not the label
+    y_test = testing_data.iloc[:, 0].values   # Assuming the first column is the label
+
+    # Evaluate the model on the entire testing dataset
+    loss, accuracy = model.evaluate(X_test, y_test, batch_size=1)
+
+    print("Testing Loss:", loss)
+    print("Testing Accuracy:", accuracy)
+
 
 if __name__ == '__main__':
-    main()
+    testing()

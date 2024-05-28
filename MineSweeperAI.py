@@ -10,6 +10,7 @@ from keras.callbacks import EarlyStopping
 from keras.regularizers import l2
 from keras import models
 import matplotlib.pyplot as plt
+from scipy.ndimage import rotate
 
 # Load and preprocess data
 def load_and_preprocess_data(csv_file_path):
@@ -25,34 +26,39 @@ def load_and_preprocess_data(csv_file_path):
     return train_features, val_features, train_labels, val_labels
 
 # Build the model
-def build_model(input_shape):
+def build_model(input_shape, dropout_rate=0.2, l2_penalty=0.001):
     model = Sequential()
 
     # Flatten the input
     model.add(Flatten(input_shape=(input_shape,)))
 
-    # Dense layers with ReLU activation
+    # # Dense layers with ReLU activation and Batch Normalization
+    # model.add(Dense(256, kernel_regularizer=l2(l2_penalty)))
+    # model.add(BatchNormalization())
+    # model.add(LeakyReLU(alpha=0.1))
+    # model.add(Dropout(dropout_rate))
+    #
+    # model.add(Dense(128, kernel_regularizer=l2(l2_penalty)))
+    # model.add(BatchNormalization())
+    # model.add(LeakyReLU(alpha=0.1))
+    # model.add(Dropout(dropout_rate))
 
-    model.add(Dense(256, activation='relu'))
+    model.add(Dense(64, kernel_regularizer=l2(l2_penalty)))
+    model.add(BatchNormalization())
+    model.add(LeakyReLU(alpha=0.1))
+    model.add(Dropout(dropout_rate))
 
-    model.add(Dense(128, activation='relu'))
-
-    model.add(Dense(64, activation='relu'))
-
-    model.add(Dense(32, activation='relu'))
+    model.add(Dense(32, kernel_regularizer=l2(l2_penalty)))
+    model.add(BatchNormalization())
+    model.add(LeakyReLU(alpha=0.1))
+    model.add(Dropout(dropout_rate))
 
     # Output layer with sigmoid activation for binary classification
     model.add(Dense(1, activation='sigmoid'))
 
     # Compile the model
-    # for Adam
-    initial_lr = 0.0001
-
-
-    # for SGD
-    #initial_lr = 0.01
-    momentum = 0.9
-    optimizer = Adam(learning_rate=initial_lr)
+    #initial_lr = 0.0001
+    optimizer = Adam()
     loss = 'binary_crossentropy'
     model.compile(optimizer, loss=loss, metrics=['binary_accuracy'])
 
@@ -93,14 +99,11 @@ def main():
     # Calculate AUC-ROC for validation set
     val_pred = model.predict(val_features)
 
-
-
     # Save the model
-    model.save('output/minesweeper_AI_Dense_binary_Adam.h5')  # Replace with your desired model path
+    model.save('output/minesweeper_AI_Dense_binary_Adam_Cheap.h5')  # Replace with your desired model path
 
     # Save or visualize the training history
     plot_training_history(history)
-
 
     # Compute calibration curve
     prob_true, prob_pred = calibration_curve(val_labels, val_pred, n_bins=10, strategy='uniform')
@@ -131,47 +134,39 @@ def main():
     plt.legend(loc='lower right')
     plt.show()
 
-    # 1. AUC-ROC
+    # Print evaluation metrics
     auc_roc = roc_auc_score(val_labels, val_pred)
     print("AUC-ROC:", auc_roc)
 
-    # 2. Brier Score
     brier_score = brier_score_loss(val_labels, val_pred)
     print("Brier Score:", brier_score)
 
-    # 3. Precision-Recall Curve
     precision, recall, _ = precision_recall_curve(val_labels, val_pred)
     auc_pr = auc(recall, precision)
     print("AUC-PR:", auc_pr)
 
-    # 4. F1 Score
     f1 = f1_score(val_labels, (val_pred >= 0.5).astype(int))
     print("F1 Score:", f1)
 
-    # 5. Log Loss (Binary Cross-Entropy)
     logloss = log_loss(val_labels, val_pred)
     print("Log Loss:", logloss)
 
-    mean_prob = np.mean(val_pred)
-    std_prob = np.std(val_pred)
-    confidence_interval = 1.96 * (std_prob / np.sqrt(len(val_pred)))
-    lower_bound = mean_prob - confidence_interval
-    upper_bound = mean_prob + confidence_interval
-    print("95% Confidence Interval:", lower_bound, "-", upper_bound)
-    #model = models.load_model("output/minesweeper_AI_Dense_binary_02.h5")
+def testing():
+    # Load the trained model
+    model = models.load_model("output/minesweeper_AI_Dense_binary_Adam_Cheap.h5")
 
-    # new_data = np.array([[2,3,2,-1,-1,-1,-1,-1,-1]])
-    # predictions = model.predict(new_data)
-    # print(predictions)
-    # new_data = np.array([[1, 2, 1, -1, -1, -1, -1, -1, -1]])
-    # predictions = model.predict(new_data)
-    # print(predictions)
-    # new_data = np.array([[1, 1, 1, -1, 11, -1, -1, -1, -1]])
-    # predictions = model.predict(new_data)
-    # print(predictions)
-    # new_data = np.array([[3, 3, 3, -1, -1, -1, -1, -1, -1]])
-    # predictions = model.predict(new_data)
-    # print(predictions)
+    # Load the testing dataset
+    testing_data = pd.read_csv("input/testing_newgen.csv")
+
+    # Separate features (X_test) and labels (y_test)
+    X_test = testing_data.iloc[:, 1:].values  # Assuming the first column is not the label
+    y_test = testing_data.iloc[:, 0].values   # Assuming the first column is the label
+
+    # Evaluate the model on the entire testing dataset
+    loss, accuracy = model.evaluate(X_test, y_test, batch_size=1)
+
+    print("Testing Loss:", loss)
+    print("Testing Accuracy:", accuracy)
 
 if __name__ == '__main__':
     main()
