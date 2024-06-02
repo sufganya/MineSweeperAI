@@ -350,17 +350,18 @@ class MineSweeper:
 
 
     def _auto_move(self, event):
-        if self._ai_on:
-            if self.best_move:
-                i, j = self.best_move
-                if self.first_click:
-                    i, j = self._game.get_start()
-                self._click_square(i, j, True)
-                self.best_move = None
-                self.best_move_rating = None
-                self._printState()
-        else:
-            print("No AI Chosen")
+        if self.game_over == False:
+            if self._ai_on:
+                if self.best_move:
+                    i, j = self.best_move
+                    if self.first_click:
+                        i, j = self._game.get_start()
+                    self._click_square(i, j, True)
+                    self.best_move = None
+                    self.best_move_rating = None
+                    self._printState()
+            else:
+                print("No AI Chosen")
 
     def _click_square(self, i, j, bot=False):
         if self.first_click:
