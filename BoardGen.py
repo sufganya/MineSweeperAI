@@ -3,7 +3,7 @@ import numpy as np
 from scipy.signal import convolve2d
 
 
-def generate_mines(rows=9, col=9, mine_chance=0.125):
+def generate_mines(rows=9, col=9, final_mines=10):
     global mine_count
     mine_count = 0
 
@@ -14,7 +14,7 @@ def generate_mines(rows=9, col=9, mine_chance=0.125):
     # Define neighbors for (startx, starty)
     neighbor_indices = [(startx + dx, starty + dy) for dx in range(-1, 2) for dy in range(-1, 2)]
 
-    while mine_count < rows * col * mine_chance - 1:
+    while mine_count < final_mines:
         minex = random.randint(0, rows - 1)
         miney = random.randint(0, col - 1)
         # Check if the new mine is adjacent to startx or starty
@@ -53,8 +53,8 @@ def print_board(board):
 
 
 class Game(object):
-    def __init__(self, rows=9, col=9, per=0.125):
-        self._board, self._startx, self._starty = generate_mines(rows, col, per)
+    def __init__(self, rows=9, col=9, fm=10):
+        self._board, self._startx, self._starty = generate_mines(rows, col, fm)
         self._board = add_one_to_nines(self._board)
 
     def show_board(self):
@@ -68,7 +68,7 @@ class Game(object):
 
 
 def main():
-    a = Game(9, 9, 0.125)
+    a = Game(9, 9, 10)
     a.show_board()
 
 

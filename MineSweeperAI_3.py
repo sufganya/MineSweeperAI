@@ -8,6 +8,7 @@ from keras.optimizers import Adam, RMSprop, SGD
 from keras.regularizers import l2
 from keras.callbacks import EarlyStopping
 import matplotlib.pyplot as plt
+from sklearn.calibration import calibration_curve
 from keras.preprocessing.image import ImageDataGenerator
 from kerastuner import RandomSearch
 from keras import models
@@ -34,17 +35,15 @@ def build_model():
     model.add(Reshape((5, 5, 1), input_shape=(25, 1)))
 
     # First convolutional layer
-    model.add(Conv2D(filters=64, kernel_size=3, padding='same', kernel_regularizer=l2(0.001)))
+    model.add(Conv2D(64, kernel_size=3, padding='same', kernel_regularizer=l2(0.001)))
     model.add(BatchNormalization())
     model.add(LeakyReLU(alpha=0.1))
-    model.add(Dropout(0.3))
-
+    model.add(Dropout(0.2))
     # Second convolutional layer
-    model.add(Conv2D(filters=80, kernel_size=3, padding='same', kernel_regularizer=l2(0.001)))
+    model.add(Conv2D(80, kernel_size=3, padding='same', kernel_regularizer=l2(0.001)))
     model.add(BatchNormalization())
     model.add(LeakyReLU(alpha=0.1))
-    model.add(Dropout(0.3))
-
+    model.add(Dropout(0.2))
     # Flatten the output
     model.add(Flatten())
 
@@ -52,13 +51,12 @@ def build_model():
     model.add(Dense(96, kernel_regularizer=l2(0.001)))
     model.add(BatchNormalization())
     model.add(LeakyReLU(alpha=0.1))
-    model.add(Dropout(0.4))
-
+    model.add(Dropout(0.2))
     # Second dense layer
     model.add(Dense(64, kernel_regularizer=l2(0.001)))
     model.add(BatchNormalization())
     model.add(LeakyReLU(alpha=0.1))
-    model.add(Dropout(0.4))
+    model.add(Dropout(0.2))
 
     # Output layer
     model.add(Dense(1, activation='sigmoid'))
@@ -68,18 +66,6 @@ def build_model():
     model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['binary_accuracy'])
 
     return model
-
-# Plot training history
-def plot_training_history(history):
-    plt.plot(history.history['binary_accuracy'], label='train_accuracy')
-    plt.plot(history.history['val_binary_accuracy'], label='val_accuracy')
-    plt.legend()
-    plt.show()
-
-    plt.plot(history.history['loss'], label='train_loss')
-    plt.plot(history.history['val_loss'], label='val_loss')
-    plt.legend()
-    plt.show()
 
 # Main function
 def main():
@@ -103,6 +89,16 @@ def main():
 
     # Calculate AUC-ROC for validation set
     val_pred = model.predict(val_features)
+
+    prob_true, prob_pred = calibration_curve(val_labels, val_pred, n_bins=10, strategy='uniform')
+
+    # Plot reliability diagram
+    plt.plot(prob_pred, prob_true, marker='o', linestyle='-')
+    plt.plot([0, 1], [0, 1], linestyle='--', color='gray')  # Perfect calibration line
+    plt.xlabel('Mean predicted probability')
+    plt.ylabel('Observed probability')
+    plt.title('Reliability Diagram')
+    plt.show()
 
     # Save the model
     model.save('output/minesweeper_AI_Conv2D_binary_Adam.h5')  # Replace with your desired model path

@@ -1,16 +1,13 @@
-import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_auc_score,brier_score_loss,auc,roc_curve, precision_recall_curve, f1_score, log_loss
 from sklearn.calibration import calibration_curve
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten , BatchNormalization , LeakyReLU
-from keras.optimizers import Adam, SGD, Adamax, RMSprop,Adagrad
+from keras.optimizers import Adam, SGD, RMSprop
 from keras.callbacks import EarlyStopping
 from keras.regularizers import l2
 from keras import models
 import matplotlib.pyplot as plt
-from scipy.ndimage import rotate
 
 # Load and preprocess data
 def load_and_preprocess_data(csv_file_path):
@@ -29,20 +26,6 @@ def load_and_preprocess_data(csv_file_path):
 def build_model(input_shape, dropout_rate=0.2, l2_penalty=0.001):
     model = Sequential()
 
-    # Flatten the input
-    model.add(Flatten(input_shape=(input_shape,)))
-
-    # # Dense layers with ReLU activation and Batch Normalization
-    # model.add(Dense(256, kernel_regularizer=l2(l2_penalty)))
-    # model.add(BatchNormalization())
-    # model.add(LeakyReLU(alpha=0.1))
-    # model.add(Dropout(dropout_rate))
-    #
-    # model.add(Dense(128, kernel_regularizer=l2(l2_penalty)))
-    # model.add(BatchNormalization())
-    # model.add(LeakyReLU(alpha=0.1))
-    # model.add(Dropout(dropout_rate))
-
     model.add(Dense(64, kernel_regularizer=l2(l2_penalty)))
     model.add(BatchNormalization())
     model.add(LeakyReLU(alpha=0.1))
@@ -56,8 +39,6 @@ def build_model(input_shape, dropout_rate=0.2, l2_penalty=0.001):
     # Output layer with sigmoid activation for binary classification
     model.add(Dense(1, activation='sigmoid'))
 
-    # Compile the model
-    #initial_lr = 0.0001
     optimizer = Adam()
     loss = 'binary_crossentropy'
     model.compile(optimizer, loss=loss, metrics=['binary_accuracy'])
@@ -96,7 +77,6 @@ def main():
         callbacks=[early_stopping]
     )
 
-    # Calculate AUC-ROC for validation set
     val_pred = model.predict(val_features)
 
     # Save the model
@@ -115,41 +95,6 @@ def main():
     plt.ylabel('Observed probability')
     plt.title('Reliability Diagram')
     plt.show()
-
-    # Compute ROC curve
-    fpr, tpr, thresholds = roc_curve(val_labels, val_pred)
-
-    # Compute AUC-ROC
-    auc_roc = auc(fpr, tpr)
-
-    # Plot ROC curve
-    plt.figure()
-    plt.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (AUC = %0.2f)' % auc_roc)
-    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-    plt.xlim([0.0, 1.0])
-    plt.ylim([0.0, 1.05])
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('Receiver Operating Characteristic (ROC) Curve')
-    plt.legend(loc='lower right')
-    plt.show()
-
-    # Print evaluation metrics
-    auc_roc = roc_auc_score(val_labels, val_pred)
-    print("AUC-ROC:", auc_roc)
-
-    brier_score = brier_score_loss(val_labels, val_pred)
-    print("Brier Score:", brier_score)
-
-    precision, recall, _ = precision_recall_curve(val_labels, val_pred)
-    auc_pr = auc(recall, precision)
-    print("AUC-PR:", auc_pr)
-
-    f1 = f1_score(val_labels, (val_pred >= 0.5).astype(int))
-    print("F1 Score:", f1)
-
-    logloss = log_loss(val_labels, val_pred)
-    print("Log Loss:", logloss)
 
 def testing():
     # Load the trained model

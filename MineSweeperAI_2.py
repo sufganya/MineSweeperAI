@@ -2,9 +2,10 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from keras.models import Sequential
-from keras.layers import Dense, Flatten, Conv1D, GlobalAveragePooling1D, MaxPooling1D
+from keras.layers import Dense, Flatten, Conv1D, MaxPooling1D
 from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping
+from sklearn.calibration import calibration_curve
 from keras import models
 import matplotlib.pyplot as plt
 
@@ -93,18 +94,21 @@ def main():
     # Save or visualize the training history
     plot_training_history(history)
 
+    val_pred = model.predict(val_features)
+
+    prob_true, prob_pred = calibration_curve(val_labels, val_pred, n_bins=10, strategy='uniform')
+
+    # Plot reliability diagram
+    plt.plot(prob_pred, prob_true, marker='o', linestyle='-')
+    plt.plot([0, 1], [0, 1], linestyle='--', color='gray')  # Perfect calibration line
+    plt.xlabel('Mean predicted probability')
+    plt.ylabel('Observed probability')
+    plt.title('Reliability Diagram')
+    plt.show()
+
     #Save the model
     model.save('output/minesweeper_AI_Conv1D_binary_Adam.h5')
 
-    # model = models.load_model("output/minesweeper_AI_Conv1D_binary.h5")
-    #
-    # new_data = np.array([[2,3,2,-1,-1,-1,-1,-1,-1]])
-    # predictions = model.predict(new_data)
-    # print(predictions)
-    #
-    # new_data2 = np.array([[1, 2, 1, -1, -1, -1, -1, -1, -1]])
-    # predictions = model.predict(new_data2)
-    # print(predictions)
 
 if __name__ == '__main__':
     main()

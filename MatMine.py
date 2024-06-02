@@ -1,15 +1,10 @@
-import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import RegularPolygon, Rectangle, Circle
 from matplotlib.widgets import Button, RadioButtons
 from matplotlib.animation import FuncAnimation
-from itertools import product
 from datetime import datetime
 from BoardGen import *
-from scipy.signal import convolve2d
-import csv
 from keras import models
-import time
 from Themes import Theme
 
 # Define some themes
@@ -69,10 +64,6 @@ class MineSweeper:
         self.timer_text = self.ax.text(3 * self.width / 4, self.height + 0.3, "Time: 0",
                                        color='blue', ha='center', va='center', visible=True)
 
-        # Create score text element
-        self.score_text = self.ax.text(3 * self.width / 4, self.height + 0.6, "Score: 0",
-                                       color='green', ha='center', va='center', visible=True)
-
         # Create reset button
         reset_button_ax = plt.axes([0.45, 0.95, 0.1, 0.05])
         self.reset_button = Button(reset_button_ax, 'Reset')
@@ -131,11 +122,11 @@ class MineSweeper:
 
     def _set_difficulty_parameters(self):
         if self.difficulty == 'Beginner':
-            self.width, self.height, self.chance = 9, 9, 0.125
+            self.width, self.height, self.chance = 9, 9, 10
         elif self.difficulty == 'Intermediate':
-            self.width, self.height, self.chance = 16, 16, 0.15625
+            self.width, self.height, self.chance = 16, 16, 40
         elif self.difficulty == 'Expert':
-            self.width, self.height, self.chance = 30, 16, 0.216
+            self.width, self.height, self.chance = 30, 16, 99
 
     def _change_theme(self, label):
         self.theme = themes[label]
@@ -215,6 +206,9 @@ class MineSweeper:
         self.timer_text.set_text("Time: 0")
         self.reset_button.label.set_text("Reset")
 
+        self.best_move = None
+        self.best_move_rating = None
+
         # Reset the flag after the reset is complete
         self.resetting_board = False
 
@@ -225,19 +219,11 @@ class MineSweeper:
 
         self.no_guess()
 
-
     def _update_timer_text(self, frame):
         if self.animation is not None:
             elapsed_time = datetime.now() - self.start_time
             self.timer_text.set_text("Time: " + str(elapsed_time.seconds))
             self.fig.canvas.draw_idle()
-
-    def _calculate_score(self):
-        end_time = datetime.now()
-        elapsed_time = (end_time - self.start_time).seconds
-        moves_taken = np.sum(self.clicked)
-        score = max(0, 10000 - (elapsed_time * 10 + moves_taken * 5))
-        return score
 
     def _update_bomb_count(self):
         flagged_count = np.sum(self.flags.astype(bool))
@@ -255,10 +241,6 @@ class MineSweeper:
 
     def _draw_green_X(self, i, j):
         self.ax.text(i + 0.5, j + 0.5, 'X', color='green', fontsize=20,
-                     ha='center', va='center')
-
-    def _draw_grey_X(self, i, j):
-        self.ax.text(i + 0.5, j + 0.5, 'X', color='gray', fontsize=20,
                      ha='center', va='center')
 
     def _toggle_mine_flag(self, i, j):
@@ -308,8 +290,8 @@ class MineSweeper:
         #
         #     for i in range(2, matrix.shape[0] - 2):
         #         for j in range(2, matrix.shape[1] - 2):
-        #             submatrix = matrix[i - 2:i + 3, j - 2:i + 3]
-        #             false_submatrix = false_matrix[i - 2:i + 3, j - 2:j + 3]
+        #             submatrix = matrix[i - 2:i + 3, j - 2:j + 3]
+        #             false_submatrix = false_matrix[i - 2:i + 3, j - 2: j + 3]
         #             sub_submatrix = matrix[i - 1:i + 2, j - 1:j + 2]
         #
         #             #if submatrix[2, 2] == -2 and np.any((sub_submatrix != -1) & (sub_submatrix != 0) & (sub_submatrix != -2)):
@@ -331,27 +313,20 @@ class MineSweeper:
                     submatrix = matrix[i - 2:i + 3, j - 2:j + 3]
                     false_submatrix = false_matrix[i - 2:i + 3, j - 2:j + 3]
                     sub_submatrix = matrix[i - 1:i + 2, j - 1:j + 2]
-                    # if submatrix[2, 2] == -2 and np.any((sub_submatrix != -1) & (sub_submatrix != 0) & (sub_submatrix != -2)):
+
                     if submatrix[2, 2] == -1 and np.any((sub_submatrix != -1) & (sub_submatrix != 0)):
                         # Flatten the submatrix and concatenate with the result
                         flattened_submatrix = false_submatrix.flatten()
                         flattened_submatrix = flattened_submatrix.reshape(1, 25, 1)
 
                         predictions = self._model.predict(flattened_submatrix)
-                        # if predictions > 0.90:
-                        #     self._draw_red_X(i - 2, j - 2)
-                        #
-                        # elif predictions < 0.1:
-                        #     self._draw_green_X(i - 2, j - 2)
-                        #
-                        # else:
-                        #     self._draw_grey_X(i-2,j-2)
+
                         if self.best_move == None and self.best_move_rating == None:
                             self.best_move = i - 2, j - 2
                             self.best_move_rating = 1 - predictions[0][0]
                         elif 1 - predictions[0][0] > self.best_move_rating:
                             self.best_move = i - 2, j - 2
-                            # self.best_move_rating = 1 - predictions[0][0]
+                            self.best_move_rating = 1 - predictions[0][0]
                         self._draw_red_X(i - 2, j - 2, predictions[0][0])
 
     def _radio_button_selected(self, label):
@@ -373,6 +348,7 @@ class MineSweeper:
                 self._model = models.load_model("output/minesweeper_AI_Conv2D_binary_Adam.h5")
             self._printState()
 
+
     def _auto_move(self, event):
         if self._ai_on:
             if self.best_move:
@@ -380,6 +356,8 @@ class MineSweeper:
                 if self.first_click:
                     i, j = self._game.get_start()
                 self._click_square(i, j, True)
+                self.best_move = None
+                self.best_move_rating = None
                 self._printState()
         else:
             print("No AI Chosen")
@@ -431,8 +409,6 @@ class MineSweeper:
 
     def _handle_victory(self):
         self.game_over = True
-        score = self._calculate_score()
-        self.score_text.set_text(f"Score: {score}")
         self.reset_button.label.set_text("Victory Lap?")
         self.animation = None
 
@@ -489,14 +465,36 @@ class MineSweeper:
         self._state = np.pad(self._state, pad_width=2, constant_values=0)
         self._false_state = np.pad(self._false_state, pad_width=2, constant_values=0)
 
-        self.find_patterns(self._state, self._false_state, 'input/testing_newgen.csv')
+        self.find_patterns(self._state, self._false_state, 'input/training_newgen.csv')
 
+
+def choose_difficulty():
+    def on_select(event):
+        difficulty = radio.value_selected
+        plt.close(fig)
+        start_game(difficulty)
+
+    fig, ax = plt.subplots(figsize=(4, 3))
+    ax.set_title("Select Difficulty")
+    ax.axis('off')
+
+    radio_ax = plt.axes([0.3, 0.5, 0.4, 0.3], facecolor='lightgoldenrodyellow')
+    radio = RadioButtons(radio_ax, ('Beginner', 'Intermediate', 'Expert'))
+
+    button_ax = plt.axes([0.4, 0.3, 0.2, 0.1])
+    button = Button(button_ax, 'Start Game')
+    button.on_clicked(on_select)
+
+    plt.show()
+
+
+def start_game(difficulty):
+    # Initialize and show the MineSweeper game with the chosen difficulty
+    m = MineSweeper(difficulty)
+    plt.show()
 
 def main():
-    # Initialize and show the MineSweeper game
-    # 'Beginner' , 'Intermediate', 'Expert'
-    m = MineSweeper('Beginner')
-    plt.show()
+    choose_difficulty()
 
 if __name__ == '__main__':
     main()
