@@ -237,8 +237,7 @@ class MineSweeper:
 
     def _draw_red_X(self, i, j, opacity=1):
         self.ax.text(i + 0.5, j + 0.5, 'X', color='red', fontsize=20,
-                     ha='center', va='center', alpha=opacity)
-
+                            ha='center', va='center', alpha=opacity)
     def _draw_green_X(self, i, j):
         self.ax.text(i + 0.5, j + 0.5, 'X', color='green', fontsize=20,
                      ha='center', va='center')
@@ -264,7 +263,17 @@ class MineSweeper:
             self._draw_mine(i, j)
 
     def _cross_out_wrong_flags(self):
-        for (i, j) in zip(*np.where((self.tiles != 9) & self.flags.astype(bool))):
+        # Print boolean conversion of flags
+        flags_bool = self.flags.astype(bool)
+
+        # Print condition array
+        condition = (self.tiles != 9) & flags_bool
+
+        # Print indices where condition is True
+        indices = np.where(condition)
+
+        # Check if the loop runs
+        for (i, j) in zip(*indices):
             self._draw_red_X(i, j)
 
     def frame_generator(self):
@@ -386,7 +395,7 @@ class MineSweeper:
     def _handle_mine_click(self, i, j):
         self.game_over = True
         self._reveal_unmarked_mines()
-        self._draw_red_X(i, j)
+        self._draw_red_X(i, j,1)
         self._cross_out_wrong_flags()
         self.animation = None
 
@@ -432,7 +441,8 @@ class MineSweeper:
             self._toggle_mine_flag(i, j)
 
         self.fig.canvas.draw()
-        self._printState()
+        if not self.game_over:
+            self._printState()
 
     def _invalid_button_press(self, event):
         return self.game_over or event.xdata is None or event.ydata is None or event.inaxes in [
